@@ -47,12 +47,19 @@ module_param_named(dbg_level, dbg_enable, int, 0644);
 /*
  * DDAC L/R volume setting
  * 0db~-95db,0.375db/step,for example:
- * 0: 0dB
- * 0x0a: -3.75dB
- * 0x7d: -46dB
- * 0xff: -95dB
+ * 
+ * raw values: 0 -- 237
+ * % values:   0 -- 100
+ * dB values:  -95.0 -- -6,75
+ * 
+ * 0x0a:    -3.75 dB
+ * 0x18:    -6.75 dB        100%    237
+ * 0x4c:  -28.72 dB          75%    178
+ * 0x7d:  -50.69 dB          50%    119
+ * 0xff:    -95.0  dB            0%        0
  */
-#define OUT_VOLUME	(0x03)
+#define SPK_OUT_VOLUME	(0x4c)
+#define HP_OUT_VOLUME	(0x7d)
 
 #ifdef CONFIG_ARCH_ROCKCHIP_ODROIDGOA
 #define RK817_DAC_VOLUME \
@@ -104,6 +111,9 @@ struct rk817_codec_priv {
 	struct gpio_desc *hp_ctl_gpio;
 	int spk_mute_delay;
 	int hp_mute_delay;
+
+	int volume_left;
+	int volume_right;
 };
 
 static const struct reg_default rk817_reg_defaults[] = {
@@ -305,8 +315,8 @@ static struct rk817_reg_val_typ playback_power_up_list[] = {
 	{RK817_CODEC_DTOP_VUCTIME, 0xf4},
 	{RK817_CODEC_DDAC_MUTE_MIXCTL, 0x00},
 
-	{RK817_CODEC_DDAC_VOLL, 0x0a},
-	{RK817_CODEC_DDAC_VOLR, 0x0a},
+	{RK817_CODEC_DDAC_VOLL, SPK_OUT_VOLUME},
+	{RK817_CODEC_DDAC_VOLR, SPK_OUT_VOLUME},
 };
 
 #define RK817_CODEC_PLAYBACK_POWER_UP_LIST_LEN \
@@ -510,6 +520,19 @@ static int rk817_playback_path_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static void check_volume(struct rk817_codec_priv *rk817) {
+	
+	if (rk817->volume_left < 24)
+		rk817->volume_left = 24;
+	else if (rk817->volume_left > 255)
+		rk817->volume_left = 255;
+
+	if (rk817->volume_right < 24)
+		rk817->volume_right = 24;
+	else if (rk817->volume_right > 255)
+		rk817->volume_right = 255;
+}
+
 static int rk817_playback_path_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
@@ -528,6 +551,9 @@ static int rk817_playback_path_put(struct snd_kcontrol *kcontrol,
 
 	DBG("%s : set playback_path %ld, pre_path %ld\n",
 	    __func__, rk817->playback_path, pre_path);
+
+	rk817->volume_left = snd_soc_read(codec, RK817_CODEC_DDAC_VOLL);
+	rk817->volume_right = snd_soc_read(codec, RK817_CODEC_DDAC_VOLR);
 
 	if (rk817->playback_path != OFF)
 		clk_prepare_enable(rk817->mclk);
@@ -549,11 +575,14 @@ static int rk817_playback_path_put(struct snd_kcontrol *kcontrol,
 	case SPK_PATH:
 	case RING_SPK:
 #else
-		if (pre_path != OFF && (pre_path != HP_PATH)) {
+		if (pre_path != OFF) {
 			rk817_codec_power_down(codec, RK817_CODEC_PLAYBACK);
 			if (rk817->capture_path == 0)
 				rk817_codec_power_down(codec, RK817_CODEC_ALL);
 		}
+
+		snd_soc_write(codec, RK817_CODEC_DDAC_VOLL, rk817->volume_left);
+		snd_soc_write(codec, RK817_CODEC_DDAC_VOLR, rk817->volume_right);
 		break;
 	case SPK_PATH:
 #endif
@@ -582,9 +611,18 @@ static int rk817_playback_path_put(struct snd_kcontrol *kcontrol,
 			snd_soc_update_bits(codec, RK817_CODEC_DDAC_MUTE_MIXCTL,
 						DACMT_ENABLE, DACMT_DISABLE);
 		}
+
+		/* increment sound level if previous path is headphone */
+		if (pre_path == HP_PATH) {
+			rk817->volume_left -= 20;
+			rk817->volume_right -= 20;
+			check_volume(rk817);
+		}
+
+		snd_soc_write(codec, RK817_CODEC_DDAC_VOLL, rk817->volume_left);
+		snd_soc_write(codec, RK817_CODEC_DDAC_VOLR, rk817->volume_right);
+
 #ifndef CONFIG_ARCH_ROCKCHIP_ODROIDGOA
-		snd_soc_write(codec, RK817_CODEC_DDAC_VOLL, rk817->spk_volume);
-		snd_soc_write(codec, RK817_CODEC_DDAC_VOLR, rk817->spk_volume);
 		break;
 	case HP_PATH:
 	case HP_NO_MIC:
@@ -607,9 +645,17 @@ static int rk817_playback_path_put(struct snd_kcontrol *kcontrol,
 		snd_soc_update_bits(codec, RK817_CODEC_DDAC_MUTE_MIXCTL,
 				    DACMT_ENABLE, DACMT_DISABLE);
 
+		/* decrement sound level if previous path is headphone */
+		if (pre_path == SPK_PATH) {
+			rk817->volume_left += 20;
+			rk817->volume_right += 20;
+			check_volume(rk817);
+		}
+
+		snd_soc_write(codec, RK817_CODEC_DDAC_VOLL, rk817->volume_left);
+		snd_soc_write(codec, RK817_CODEC_DDAC_VOLR, rk817->volume_right);
+
 #ifndef CONFIG_ARCH_ROCKCHIP_ODROIDGOA
-		snd_soc_write(codec, RK817_CODEC_DDAC_VOLL, rk817->hp_volume);
-		snd_soc_write(codec, RK817_CODEC_DDAC_VOLR, rk817->hp_volume);
 		break;
 	case BT:
 		break;
@@ -641,10 +687,14 @@ static int rk817_playback_path_put(struct snd_kcontrol *kcontrol,
 			snd_soc_write(codec, RK817_CODEC_ACLASSD_CFG2, 0xc4);
 		}
 
-#ifndef CONFIG_ARCH_ROCKCHIP_ODROIDGOA
-		snd_soc_write(codec, RK817_CODEC_DDAC_VOLL, rk817->hp_volume);
-		snd_soc_write(codec, RK817_CODEC_DDAC_VOLR, rk817->hp_volume);
-#endif
+		/* decrement sound level if previous path is not headphone */
+		if (pre_path != HP_PATH) {
+			rk817->volume_left += 20;
+			rk817->volume_right += 20;
+		}
+
+		snd_soc_write(codec, RK817_CODEC_DDAC_VOLL, rk817->volume_left);
+		snd_soc_write(codec, RK817_CODEC_DDAC_VOLR, rk817->volume_right);
 		break;
 	default:
 		return -EINVAL;
@@ -829,6 +879,10 @@ static int rk817_digital_mute(struct snd_soc_dai *dai, int mute)
 	struct snd_soc_codec *codec = dai->codec;
 	struct rk817_codec_priv *rk817 = snd_soc_codec_get_drvdata(codec);
 
+	/* store actual volume values */
+	rk817->volume_left = snd_soc_read(codec, RK817_CODEC_DDAC_VOLL);
+	rk817->volume_right = snd_soc_read(codec, RK817_CODEC_DDAC_VOLR);
+
 	DBG("%s %d\n", __func__, mute);
 	if (mute)
 		snd_soc_update_bits(codec, RK817_CODEC_DDAC_MUTE_MIXCTL,
@@ -943,6 +997,16 @@ static struct snd_soc_dai_driver rk817_dai[] = {
 
 static int rk817_suspend(struct snd_soc_codec *codec)
 {
+	/* store actual volume values */
+	struct rk817_codec_priv *rk817 = snd_soc_codec_get_drvdata(codec);
+	rk817->volume_left = snd_soc_read(codec, RK817_CODEC_DDAC_VOLL);
+	rk817->volume_right = snd_soc_read(codec, RK817_CODEC_DDAC_VOLR);
+
+	DBG("[%s] playback path %ld, spk %d, hp %d, left %d, right %d \n", __func__,
+		rk817->playback_path,
+		rk817->spk_volume, rk817->hp_volume,
+		rk817->volume_left, rk817->volume_right);
+
 	rk817_codec_power_down(codec, RK817_CODEC_ALL);
 	return 0;
 }
@@ -953,9 +1017,14 @@ static int rk817_resume(struct snd_soc_codec *codec)
 
 	rk817_codec_power_up(codec, RK817_CODEC_ALL);
 
-	DBG("[%s] playback path %ld, spk %d, hp %d\n", __func__,
+	DBG("[%s] playback path %ld, spk %d, hp %d, left %d, right %d \n", __func__,
 		rk817->playback_path,
-		rk817->spk_volume, rk817->hp_volume);
+		rk817->spk_volume, rk817->hp_volume,
+		rk817->volume_left, rk817->volume_right);
+
+	/* restore previous volume values */
+	snd_soc_write(codec, RK817_CODEC_DDAC_VOLL, rk817->volume_left);
+	snd_soc_write(codec, RK817_CODEC_DDAC_VOLR, rk817->volume_right);
 
 	switch (rk817->playback_path) {
 	case OFF:
@@ -1139,20 +1208,26 @@ static int rk817_codec_parse_dt_property(struct device *dev,
 	ret = of_property_read_u32(node, "spk-volume", &rk817->spk_volume);
 	if (ret < 0) {
 		DBG("%s() Can not read property spk-volume\n", __func__);
-		rk817->spk_volume = OUT_VOLUME;
+		rk817->spk_volume = SPK_OUT_VOLUME;
 	}
-	if (rk817->spk_volume < 3)
-		rk817->spk_volume = 3;
+	if (rk817->spk_volume < 0x18){
+		DBG("%s() Property spk-volume value too low\n",
+		    __func__);
+		rk817->spk_volume = SPK_OUT_VOLUME;
+	}
+		
 
-	ret = of_property_read_u32(node, "hp-volume",
-				   &rk817->hp_volume);
+	ret = of_property_read_u32(node, "hp-volume", &rk817->hp_volume);
 	if (ret < 0) {
 		DBG("%s() Can not read property hp-volume\n",
 		    __func__);
-		rk817->hp_volume = OUT_VOLUME;
+		rk817->hp_volume = HP_OUT_VOLUME;
 	}
-	if (rk817->hp_volume < 3)
-		rk817->hp_volume = 3;
+	if (rk817->hp_volume < 0x18) {
+		DBG("%s() Property hp-volume value too low\n",
+		    __func__);
+		rk817->hp_volume = HP_OUT_VOLUME;
+	}
 
 	ret = of_property_read_u32(node, "capture-volume",
 				   &rk817->capture_volume);

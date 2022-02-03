@@ -14,7 +14,7 @@
 
 / {
 	model = "Hardkernel ODROID-GO3";
-	compatible = "rockchip,rk3326-odroidgo3-linux", "rockchip,rk3326";
+	compatible = "rockchip,rk3326-odroidgo3-linux-oc", "rockchip,rk3326";
 
 	chosen {
                 bootargs = "";
@@ -355,17 +355,18 @@
 &cpu0_opp_table {
 	rockchip,avs = <1>;
 
-	/* default 1.296GHz */
+	/* bin scaling clock 1.296MHz */
 	rockchip,bin-scaling-sel = <
-		0	13
+		0	10
 		1	13
+		2	16
+		3	20
 	>;
 
 	/delete-node/ opp-408000000;
 	/delete-node/ opp-600000000;
 	/delete-node/ opp-816000000;
 	/delete-node/ opp-1248000000;
-	/delete-node/ opp-1368000000;
 	/delete-node/ opp-1416000000;
 	/delete-node/ opp-1440000000;
 	/delete-node/ opp-1464000000;
@@ -375,6 +376,7 @@
 /* allowed 
 	opp-1200000000
 	opp-1296000000
+	opp-1368000000
 */
 };
 
@@ -557,11 +559,27 @@
 	opp-786000000 {
 		status = "okay";
 	};
+
+	opp-850000000 {
+		opp-hz = /bits/ 64 <850000000>;
+		opp-microvolt = <1150000>;
+		status = "okay";
+	};
 };
 
 &gpu_opp_table {
 	/delete-node/ opp-200000000;
 	/delete-node/ opp-300000000;
+	/delete-node/ opp-520000000;
+
+	opp-560000000 {
+		opp-hz = /bits/ 64 <560000000>;
+		opp-microvolt = <1175000>;
+		opp-microvolt-L0 = <1175000>;
+		opp-microvolt-L1 = <1175000>;
+		opp-microvolt-L2 = <1175000>;
+		opp-microvolt-L3 = <1150000>;
+	};
 };
 
 &emmc {
@@ -669,7 +687,7 @@
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <950000>;
-				regulator-max-microvolt = <1150000>;
+				regulator-max-microvolt = <1175000>;
 				regulator-ramp-delay = <6001>;
 				regulator-initial-mode = <0x2>;
 				regulator-name = "vdd_logic";
@@ -683,7 +701,7 @@
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <950000>;
-				regulator-max-microvolt = <1350000>;
+				regulator-max-microvolt = <1400000>;
 				regulator-ramp-delay = <6001>;
 				regulator-initial-mode = <0x2>;
 				regulator-name = "vdd_arm";

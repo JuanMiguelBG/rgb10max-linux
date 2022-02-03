@@ -196,19 +196,19 @@ static int joypad_amux_select(struct analog_mux *amux, int channel)
 	gpio_set_value(amux->en_gpio, 0);
 
 	switch(channel) {
-		case 0:	/* EVENT (ABS_RY) */
+		case 0:
 			gpio_set_value(amux->sel_a_gpio, 0);
 			gpio_set_value(amux->sel_b_gpio, 0);
 			break;
-		case 1:	/* EVENT (ABS_RX) */
+		case 1:
 			gpio_set_value(amux->sel_a_gpio, 0);
 			gpio_set_value(amux->sel_b_gpio, 1);
 			break;
-		case 2:	/* EVENT (ABS_Y) */
+		case 2:
 			gpio_set_value(amux->sel_a_gpio, 1);
 			gpio_set_value(amux->sel_b_gpio, 0);
 			break;
-		case 3:	/* EVENT (ABS_X) */
+		case 3:
 			gpio_set_value(amux->sel_a_gpio, 1);
 			gpio_set_value(amux->sel_b_gpio, 1);
 			break;
@@ -235,7 +235,7 @@ static int joypad_adc_read(struct analog_mux *amux, struct bt_adc *adc)
 
 	value *= adc->scale;
 
-	return (adc->invert ? (adc->max - value) : value);
+	return value;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -994,6 +994,28 @@ static int joypad_dt_parse(struct device *dev, struct joypad *joypad)
 	if (error)
 		return error;
 
+	/* set abs channels (already initialized for OGS/MAX by default in joypad_adc_setup) */
+	if (device_property_present(dev, "abs_ry_channel"))
+		device_property_read_u32(dev, "abs_ry_channel", &joypad->adcs[0].amux_ch);
+	if (device_property_present(dev, "abs_rx_channel"))
+		device_property_read_u32(dev, "abs_rx_channel", &joypad->adcs[1].amux_ch);
+	if (device_property_present(dev, "abs_y_channel"))
+		device_property_read_u32(dev, "abs_y_channel", &joypad->adcs[2].amux_ch);
+	if (device_property_present(dev, "abs_x_channel"))
+		device_property_read_u32(dev, "abs_x_channel", &joypad->adcs[3].amux_ch);
+	dev_info(dev, "%s : abs channels: ry = %d, rx = %d, y = %d, x = %d\n",
+		__func__, joypad->adcs[0].amux_ch, joypad->adcs[1].amux_ch, joypad->adcs[2].amux_ch,
+		joypad->adcs[3].amux_ch);
+        
+	/* abs inversion (already initialized, to false, for OGS/MAX by default in joypad_adc_setup) */
+	joypad->adcs[0].invert = device_property_present(dev, "invert-absry");
+	joypad->adcs[1].invert = device_property_present(dev, "invert-absrx");
+	joypad->adcs[2].invert = device_property_present(dev, "invert-absy");
+	joypad->adcs[3].invert = device_property_present(dev, "invert-absx");
+	dev_info(dev, "%s : abs inversion: ry = %d, rx = %d, y = %d, x = %d\n",
+		__func__, joypad->adcs[0].invert, joypad->adcs[1].invert, joypad->adcs[2].invert,
+		joypad->adcs[3].invert);
+        
 	error = joypad_amux_setup(dev, joypad);
 	if (error)
 		return error;

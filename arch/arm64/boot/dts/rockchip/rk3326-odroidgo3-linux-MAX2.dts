@@ -116,6 +116,17 @@
 		/* poll device interval (ms), adc read interval */
 		poll-interval = <10>;
 
+		/* RGB10 Max 2 abs inversion */
+		invert-absx;
+		invert-absy;
+		invert-absrx;
+		
+		/* RGB10 Max 2 abs channels */
+		abs_ry_channel = <1>;
+		abs_rx_channel = <0>;
+		abs_y_channel = <2>;   // Same as OGS/MAX
+		abs_x_channel = <3>;   // Same as OGS/MAX
+
 		/* gpio button auto repeat set value : default disable */
 		/*
 			autorepeat;
@@ -203,13 +214,13 @@
                 };
                 sw15 {
                         gpios = <&gpio2 RK_PA6 GPIO_ACTIVE_LOW>;
-                        label = "GPIO TOP-LEFT";
-                        linux,code = <BTN_TL>; // 0x02
+                        label = "GPIO TOP-LEFT2";
+                        linux,code = <BTN_TL2>;
                 };
                 sw16 {
                         gpios = <&gpio2 RK_PA7 GPIO_ACTIVE_LOW>;
-                        label = "GPIO TOP-RIGHT";
-                        linux,code = <BTN_TR>; // 0x05
+                        label = "GPIO TOP-RIGHT2";
+                        linux,code = <BTN_TR2>;
                 };
                 sw19 {
                         gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>;
@@ -218,13 +229,13 @@
                 };
                 sw20 {
                         gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
-                        label = "GPIO TOP-RIGHT2";
-                        linux,code = <BTN_TR2>;
+                        label = "GPIO TOP-RIGHT";
+                        linux,code = <BTN_TR>; // 0x05
                 };
                 sw21 {
                         gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>;
-                        label = "GPIO TOP-LEFT2";
-                        linux,code = <BTN_TL2>;
+                        label = "GPIO TOP-LEFT";
+                        linux,code = <BTN_TL>; // 0x02
                 };
                 sw22 {
                         gpios = <&gpio3 RK_PB4 GPIO_ACTIVE_LOW>;
