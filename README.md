@@ -69,5 +69,5 @@ sudo cp libmali.so_rk3326_gbm_arm32_r13p0_with_vulkan_and_cl  ./<ext4 partition 
 Thanks
 ======
 
-Special thanks to DiegoFnz (MAX2 master), [Christian Haitian](https://github.com/christianhaitian/linux) and [Souhtoz](https://github.com/southoz/linux/tree/odroidgoA-4.4.y).
+Special thanks to DiegoFnz (MAX2/kernel master), [Christian Haitian](https://github.com/christianhaitian/linux), [Souhtoz](https://github.com/southoz/linux/tree/odroidgoA-4.4.y),[351ELEC](https://github.com/351ELEC/kernel_rg351) and to the unnamed tester.
 
