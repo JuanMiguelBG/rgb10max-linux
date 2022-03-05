@@ -1,4 +1,1 @@
 
-[submodule "fs/exfat"]
-	path = fs/exfat
-	url = https://github.com/JuanMiguelBG/linux-exfat-oot.git
