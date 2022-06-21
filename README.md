@@ -31,7 +31,7 @@ aarch64-linux-gnu-gcc -v
 
 Clone this git and build the kernel
 ```bash
-git clone https://github.com/JuanMiguelBG/rgb10max-linux.git
+git clone --recursive https://github.com/JuanMiguelBG/rgb10max-linux.git
 cd linux
 make odroidgoa_defconfig
 make
