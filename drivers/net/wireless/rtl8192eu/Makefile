@@ -1,7 +1,7 @@
 EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS)
 
 ##################### Optimization Flags ##########################
-EXTRA_CFLAGS += -O2
+EXTRA_CFLAGS += -O3
 ##################### Compile-time Warnings #######################
 EXTRA_CFLAGS += -Wno-unused-variable
 EXTRA_CFLAGS += -Wno-unused-value
