@@ -133,7 +133,7 @@ static void rga_try_set_reg(void);
 
 
 /* Logging */
-#define RGA_DEBUG 1
+#define RGA_DEBUG 0
 #if RGA_DEBUG
 #define DBG(format, args...) printk(KERN_DEBUG "%s: " format, DRIVER_NAME, ## args)
 #define ERR(format, args...) printk(KERN_ERR "%s: " format, DRIVER_NAME, ## args)
@@ -147,7 +147,7 @@ static void rga_try_set_reg(void);
 #endif
 
 #if RGA_DEBUGFS
-static const char *rga_get_cmd_mode_str(u32 cmd)
+static const char __maybe_unused *rga_get_cmd_mode_str(u32 cmd)
 {
 	switch (cmd) {
 	case RGA_BLIT_SYNC:
@@ -165,7 +165,7 @@ static const char *rga_get_cmd_mode_str(u32 cmd)
 	}
 }
 
-static const char *rga_get_blend_mode_str(u16 alpha_rop_flag)
+static const char __maybe_unused *rga_get_blend_mode_str(u16 alpha_rop_flag)
 {
 	if (alpha_rop_flag == 0)
 		return "no blend";
@@ -177,7 +177,7 @@ static const char *rga_get_blend_mode_str(u16 alpha_rop_flag)
 		return "check reg for more imformation";
 }
 
-static const char *rga_get_render_mode_str(u8 mode)
+static const char __maybe_unused *rga_get_render_mode_str(u8 mode)
 {
 	switch (mode & 0x0F) {
 	case 0x0:
@@ -201,7 +201,7 @@ static const char *rga_get_render_mode_str(u8 mode)
 	}
 }
 
-static const char *rga_get_rotate_mode_str(struct rga_req *req_rga)
+static const char __maybe_unused *rga_get_rotate_mode_str(struct rga_req *req_rga)
 {
 	switch (req_rga->rotate_mode) {
 	case 0x0:
@@ -260,7 +260,7 @@ static bool rga_is_yuv8bit_format(uint32_t format)
 	return ret;
 }
 
-static const char *rga_get_format_name(uint32_t format)
+static const char __maybe_unused *rga_get_format_name(uint32_t format)
 {
 	switch (format) {
 	case RK_FORMAT_RGBA_8888:
@@ -1073,7 +1073,7 @@ static int rga_convert_dma_buf(struct rga_req *req)
         hdl = ion_import_dma_buf(drvdata->ion_client, req->dst.yrgb_addr);
         if (IS_ERR(hdl)) {
             ret = PTR_ERR(hdl);
-            printk("RGA2 ERROR ion buf handle\n");
+            printk("RGA ERROR ion buf handle\n");
             return ret;
         }
 #if RGA_DEBUGFS
@@ -1122,7 +1122,7 @@ static int rga_get_img_info(rga_img_info_t *img,
 	u32 vir_w, vir_h;
 	int yrgb_addr = -1;
 	int ret = 0;
-	void *vaddr = NULL;
+	void __maybe_unused *vaddr = NULL;
 
 	rga_dev = drvdata->dev;
 	yrgb_addr = (int)img->yrgb_addr;
@@ -1942,12 +1942,74 @@ static int rga_drv_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int rga_enable_clocks(struct device *dev)
+{
+    int ret;
+
+    ret = clk_prepare_enable(rga_drvdata->clk_rga);
+    if (ret) {
+        pr_err("Cannot enable rga sclk: %d\n", ret);
+        return ret;
+    }
+
+    ret = clk_prepare_enable(rga_drvdata->aclk_rga);
+    if (ret) {
+        pr_err("Cannot enable rga aclk: %d\n", ret);
+        goto err_disable_sclk;
+    }
+
+    ret = clk_prepare_enable(rga_drvdata->hclk_rga);
+    if (ret) {
+        pr_err("Cannot enable rga hclk: %d\n", ret);
+        goto err_disable_aclk;
+    }
+
+    return 0;
+
+err_disable_sclk:
+	clk_disable_unprepare(rga_drvdata->clk_rga);
+err_disable_aclk:
+	clk_disable_unprepare(rga_drvdata->aclk_rga);
+
+    return ret;
+}
+
+
+static void rga_disable_clocks(struct device *dev)
+{
+    (void)dev;
+	clk_disable_unprepare(rga_drvdata->clk_rga);
+	clk_disable_unprepare(rga_drvdata->hclk_rga);
+	clk_disable_unprepare(rga_drvdata->aclk_rga);
+}
+
+
+static int __maybe_unused rga_runtime_suspend(struct device *dev)
+{
+    rga_disable_clocks(dev);
+
+    return 0;
+}
+
+static int __maybe_unused rga_runtime_resume(struct device *dev)
+{
+    return rga_enable_clocks(dev);
+}
+
+
+static const struct dev_pm_ops rga_pm = {
+    SET_RUNTIME_PM_OPS(rga_runtime_suspend,
+        rga_runtime_resume, NULL)
+};
+
+
 static struct platform_driver rga_driver = {
 	.probe		= rga_drv_probe,
 	.remove		= rga_drv_remove,
 	.driver		= {
 		.owner  = THIS_MODULE,
 		.name	= "rga",
+		.pm     = &rga_pm,
 		.of_match_table = of_match_ptr(rockchip_rga_dt_ids),
 	},
 };
