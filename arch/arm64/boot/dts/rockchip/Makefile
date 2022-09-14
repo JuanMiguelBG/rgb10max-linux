@@ -133,7 +133,9 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-odroidgo2-linux-v11.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-odroidgo3-linux.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-odroidgo3-linux-oc.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-odroidgo3-linux-MAX2.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-odroidgo3-linux-MAX2-swap_LR.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-odroidgo3-linux-MAX2-oc.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3326-odroidgo3-linux-MAX2-oc-swap_LR.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)
